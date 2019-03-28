@@ -1,0 +1,202 @@
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <title>s3.sirodoht.com</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #000;
+      }
+
+      .content {
+        display: flex;
+        height: 100vh;
+        width: 100vw;
+      }
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      .loader,
+      .loader:after {
+        display: none;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        position: fixed;
+        top: 12px;
+        left: 50%;
+        right: 50%;
+      }
+
+      .loader {
+        border-top: 4px solid  rgba(255, 255, 255, 0.2);
+        border-right: 4px solid  rgba(255, 255, 255, 0.2);
+        border-bottom: 4px solid  rgba(255, 255, 255, 0.2);
+        border-left: 4px solid #fff;
+        animation: loading 0.9s infinite linear;
+      }
+
+      @keyframes loading {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1.12.min.js"></script>
+  </head>
+  <body>
+    <div class="content">
+      <div class="loader"></div>
+      <img src="https://cdn.worldvectorlogo.com/logos/aws-s3.svg" alt="current image">
+    </div>
+
+    <script>
+      var creds = new AWS.Credentials({
+        accessKeyId: 'AKIA5ZAXA7MI73O5U77X',
+        secretAccessKey: '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',
+      });
+
+      var s3 = new AWS.S3({
+        apiVersion: '2006-03-01',
+        endpoint: 's3-eu-central-1.amazonaws.com',
+        region: 'eu-central-1',
+        signatureVersion: 'v4',
+        credentials: creds,
+      });
+
+      var params = {
+        Bucket: 'sirodoht',
+      };
+
+      var prefixUrl = 'https://s3.eu-central-1.amazonaws.com/sirodoht/';
+      var state = [];
+      var realizedOrder = [];
+
+      // touch swipes state variables
+      var xDown = null;
+      var yDown = null;
+
+      s3.listObjects(params, function (err, data) {
+        if (err) {
+          console.log('Err:', err);
+        } else {
+          console.log('successful list:', data);
+          getUrls(data['Contents']);
+        }
+      });
+
+      function getUrls(responseData) {
+        console.log('responseData:', responseData);
+        responseData.forEach(function (item) {
+          var itemUrl = item['Key'];
+          state.push(prefixUrl + item['Key']);
+        });
+
+        initListeners();
+      }
+
+      function initListeners() {
+        document.addEventListener('keydown', onKeyPress, false);
+        document.addEventListener('touchstart', handleTouchStart, false);
+        document.addEventListener('touchmove', handleTouchMove, false);
+        document.querySelector('img').addEventListener('load', function (evt) {
+          document.querySelector('.loader').style.display = 'none';
+        });
+      }
+
+      function getTouches(evt) {
+        return evt.touches || evt.originalEvent.touches;
+      }
+
+      function handleTouchStart(evt) {
+        xDown = getTouches(evt)[0].clientX;
+        yDown = getTouches(evt)[0].clientY;
+      };
+
+      function handleTouchMove(evt) {
+        if (!xDown || !yDown) {
+          return;
+        }
+
+        var xUp = evt.touches[0].clientX;
+        var yUp = evt.touches[0].clientY;
+
+        var xDiff = xDown - xUp;
+        var yDiff = yDown - yUp;
+
+        if (Math.abs(xDiff) > Math.abs(yDiff)) {
+          if (xDiff > 0) {
+            // left swipe
+            nextImage();
+          } else {
+            // right swipe
+            previousImage();
+          }
+        } else {
+          if (yDiff > 0) {
+            // up swipe
+            nextImage();
+          } else {
+            // down swipe
+            previousImage();
+          }
+        }
+
+        xDown = null;
+        yDown = null;
+      };
+
+      function onKeyPress(evt) {
+        switch (event.key) {
+          case 'ArrowLeft':
+            previousImage();
+            break;
+          case 'ArrowRight':
+            nextImage();
+            break;
+        }
+      }
+
+      function nextImage() {
+        document.querySelector('.loader').style.display = 'block';
+        var currentIndex = realizedOrder.indexOf(document.querySelector('img').src);
+        if (currentIndex < realizedOrder.length - 1) {
+          document.querySelector('img').src = realizedOrder[currentIndex + 1];
+        } else if (realizedOrder.length === state.length) {
+          return;
+        } else {
+          var max = state.length - 1;
+          var nextImageNumber = Math.floor(Math.random() * (max + 1));
+          while (realizedOrder.indexOf(state[nextImageNumber]) !== -1) {
+            nextImageNumber = Math.floor(Math.random() * (max + 1));
+          }
+          realizedOrder.push(state[nextImageNumber]);
+
+          document.querySelector('img').src = state[nextImageNumber];
+        }
+      }
+
+      function previousImage() {
+        var currentIndex = realizedOrder.indexOf(document.querySelector('img').src);
+        if (currentIndex === 0 || currentIndex === -1) {
+          return;
+        }
+        document.querySelector('img').src = realizedOrder[currentIndex - 1];
+      }
+
+    </script>
+
+  </body>
+</html>
